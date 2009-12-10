@@ -206,6 +206,10 @@ Miscellaneous
 
 * Add ? : ternary operator
 
+* Need a replacement preprocessor :-( Should we use words starting with
+  capital letters as macros?
+
+* Need a replacement syntax for compiler directives
     
 Future/blue sky ideas
 =====================

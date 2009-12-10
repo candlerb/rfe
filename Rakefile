@@ -14,7 +14,7 @@ end
 SRC_FILES = Dir['src/**/*.erl']
 SRC_FILES.each do |src|
   file output_file(src) => [src] do
-    sh "erlc -o ebin #{src}"
+    sh "erlc +debug_info -o ebin #{src}"
   end
   task :default => output_file(src)
 end

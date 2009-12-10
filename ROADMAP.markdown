@@ -108,10 +108,10 @@ Function definitions
 
 * Start with 'def' and end with 'end'
 
-        def a(x)                -->     a(X) ->
+        def a({x})                -->   a({X}) ->
           x * x                             X * X,
-        end                             a(X,Y) ->
-        def a(x,y)                          X * Y.
+        end                             a({X,Y}) ->
+        def a({x,y})                          X * Y.
           x * y
         end
 
@@ -121,7 +121,7 @@ Function definitions
           1.0 / x                           try
         rescue error:badarith                   1.0 / X
           1.0                               catch
-        end                                     error:_ ->
+        end                                     error:badarith ->
                                                   1.0
                                           end.
 
@@ -170,7 +170,7 @@ Reclaim the upper-case letter, and allow bare function calls
   need not be in parentheses.
 
         a = 3           -->     A = 3,
-        a                               A
+        a                       A
 
         b               -->     b()
         b "foo","bar"   -->     b("foo","bar")
@@ -222,6 +222,9 @@ Be able to wrap entire patterns such as gen_server. For example:
     class Thing
       def initialize
         0
+      end
+      def initialize(n)
+        n
       end
       def inc(state)
         {state, state+1}

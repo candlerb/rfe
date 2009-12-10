@@ -1,0 +1,2 @@
+#!/bin/sh
+erl -pa ebin -pa ../ebin -noshell -s rfe_cmd erl2erl -s init stop -extra "$@"

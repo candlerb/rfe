@@ -3,13 +3,13 @@ Line breaks, and reclaiming the semicolon
 
 * Expressions separated by newline or semicolon
 
-    1 + 2		-->	1 + 2,
-    3 + 4			3 + 4
+        1 + 2           -->     1 + 2,
+        3 + 4                   3 + 4
 
-    1 + 2; 3 + 4	-->	ditto
+        1 + 2; 3 + 4    -->     ditto
 
-    1 +			-->	1 + 2
-    2
+        1 +             -->     1 + 2
+        2
 
 * backslash-newline joins lines together
 
@@ -21,69 +21,69 @@ Line breaks, and reclaiming the semicolon
 
 * Block structure for try
 
-    begin			-->	try
-      foo				    foo()
-    rescue error:badarith		catch
-      "oops"				    error:badarith ->
-    rescue => e				        "oops";
-      "doh!"				    error:E ->
-    ensure				        "doh!"
-      io.write "done"			after
-    end					    io:write("done")
-					end
+        begin                   -->     try
+          foo                               foo()
+        rescue error:badarith           catch
+          "oops"                            error:badarith ->
+        rescue => e                             "oops";
+          "doh!"                                    error:E ->
+        ensure                                  "doh!"
+          io.write "done"               after
+        end                                 io:write("done")
+                                        end
 
 * Ditto for 'receive'
 
 * 'case' with expression maps to pattern matching
 
-    case x			-->	case X of
-    when {:foo}				    {foo} ->
-      io.write "is foo"			        io.write("is foo");
-    when {:bar, y}			    {bar,Y} ->
-      io:write y				io.write(Y);
-    else				    _ ->
-      io.write "doh!"			        io.write("doh!")
-    end					end
+        case x                  -->     case X of
+        when {:foo}                         {foo} ->
+          io.write "is foo"                     io.write("is foo");
+        when {:bar, y}                      {bar,Y} ->
+          io:write y                            io.write(Y);
+        else                                _ ->
+          io.write "doh!"                       io.write("doh!")
+        end                             end
 
 We can also implement case with rescues/ensure, which would map to
 "try Expr of ..."
 
 * case without expression maps to 'if', and just tests guard expressions
 
-    case			-->	if
-    when is_integer(x)			    is_integer(X)
-      "integer"				        "integer";
-    when is_float(x)			    is_float(X);
-      "float"				        "float";
-    else				    true
-      "unknown"					"unknown"
-    end					end
+        case                    -->     if
+        when is_integer(x)                  is_integer(X)
+          "integer"                             "integer";
+        when is_float(x)                    is_float(X);
+          "float"                               "float";
+        else                                true
+          "unknown"                             "unknown"
+        end                             end
 
 (Can wrap in 'try' for rescues/ensure)
 
 * 'if' maps to nested 'case' statements, so that it can use expressions
   with side-effects
 
-    if foo < 3			-->	case foo() < 3 of
-      "too low"				    true ->
-    elsif foo > 5			        "too low";
-      "too high"			    _ ->
-    else				        case foo() > 5 of
-      "just right"			            true ->
-    end					                "too high";
-					            _ ->
-					                "just right"
-					        end
-					end
+        if foo < 3              -->     case foo() < 3 of
+          "too low"                         true ->
+        elsif foo > 5                   "too low";
+          "too high"                        _ ->
+        else                                    case foo() > 5 of
+          "just right"                              true ->
+        end                                             "too high";
+                                                    _ ->
+                                                        "just right"
+                                                end
+                                        end
 
 * inline rescue
 
-    a = foo rescue bar		-->	A = try
-					    foo()
-					catch
-					    error:_ ->
-					        bar()
-					end.
+        a = foo rescue bar      -->     A = try
+                                            foo()
+                                        catch
+                                            error:_ ->
+                                                bar()
+                                        end.
 
 Function calls and lambdas
 --------------------------
@@ -91,15 +91,15 @@ Function calls and lambdas
 * 'Block' syntax {..} and do..end creates an extra first argument to
   a function call.
 
-  a = [1,2,3]			-->	A = [1,2,3],
-  lists.each(a) { |x| puts x }		lists:each(fun(X) -> puts X end, A)
+        a = [1,2,3]                     -->     A = [1,2,3],
+        lists.each(a) { |x| puts x }            lists:each(fun(X) -> puts X end, A)
 
 * New syntax for funs
 
-  a = fun { |x| x * x }		-->	A = fun(X) -> X * X end
+        a = fun { |x| x * x }           -->     A = fun(X) -> X * X end
 
-  a = fun { |{x}| x * x		-->	A = fun({X}) -> X * X;
-            |{x,y}| x * y }		       ({X,Y}) -> X * Y end
+        a = fun { |{x}| x * x           -->     A = fun({X}) -> X * X;
+                  |{x,y}| x * y }                      ({X,Y}) -> X * Y end
 
 * 'lambda' as an alias for 'fun'
 
@@ -108,22 +108,22 @@ Function definitions
 
 * Start with 'def' and end with 'end'
 
-  def a(x)		-->	a(X) ->
-    x * x			    X * X,
-  end				a(X,Y) ->
-  def a(x,y)			    X * Y.
-    x * y
-  end
+        def a(x)                -->     a(X) ->
+          x * x                             X * X,
+        end                             a(X,Y) ->
+        def a(x,y)                          X * Y.
+          x * y
+        end
 
 * Top-level 'rescue'(s) and/or 'ensure' wrap the function in try/catch/after
 
-  def a(x)		-->	a(X) ->
-    1.0 / x			    try
-  rescue error:badarith		        1.0 / X
-    1.0				    catch
-  end				        error:_ ->
-  				            1.0
-				    end.
+        def a(x)                -->     a(X) ->
+          1.0 / x                           try
+        rescue error:badarith                   1.0 / X
+          1.0                               catch
+        end                                     error:_ ->
+                                                  1.0
+                                          end.
 
 (It might be good to allow these functions to be in an arbitrary order in
 the source file, and to link branches of the same name+arity together
@@ -133,32 +133,32 @@ put the definitions in the correct order)
 Similarly, it would be good to avoid the 'export' keyword, instead using
 'public' and 'private' to set visibility
 
-  private
-    # default is private here
-  private :a
-  public 'a/2'
+        private
+          # default is private here
+        private :a
+        public 'a/2'
 
 * Should we allow nested defs? Would just be sugar for lambda
 
-  def a(x)		->	a(X) ->
-    def sq(y)			    Sq = fun(Y) ->
-      y*y			        Y*Y,
-    end				    Sq(X) + 2*X.
-    sq(x) + 2*x
-  end
+        def a(x)                ->      a(X) ->
+          def sq(y)                         Sq = fun(Y) ->
+            y*y                         Y*Y,
+          end                               Sq(X) + 2*X.
+          sq(x) + 2*x
+        end
 
 Reclaim the colon
 -----------------
 
 * Mark atoms with colon, like ruby symbols
 
-    :foo		-->     foo
-    :'foo bar		-->	'foo bar'
-    :foo()		-->	foo()
+        :foo            -->     foo
+        :'foo bar       -->     'foo bar'
+        :foo()          -->     foo()
 
 * Use dot instead of colon for module function calls
 
-    :io.:write()	-->	io:write()
+        :io.:write()    -->     io:write()
 
 Reclaim the upper-case letter, and allow bare function calls
 ------------------------------------------------------------
@@ -169,19 +169,19 @@ Reclaim the upper-case letter, and allow bare function calls
   variable is a variable; otherwise it is a function call, and the arguments
   need not be in parentheses.
 
-    a = 3		-->	A = 3,
-    a				A
+        a = 3           -->     A = 3,
+        a                               A
 
-    b			-->	b()
-    b "foo","bar"	-->	b("foo","bar")
+        b               -->     b()
+        b "foo","bar"   -->     b("foo","bar")
 
 * This also applies to "expr . bareword" and "bareword . bareword"
 
-    :io.write		->	io:write()
-    io.write		->	io:write()
+        :io.write       -->     io:write()
+        io.write        -->     io:write()
 
-    a = :io		->	a = io,
-    a.write		->	a:write()
+        a = :io         -->     a = io,
+        a.write         -->     a:write()
 
 Reclaim the % and operators
 ---------------------------

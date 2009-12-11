@@ -283,6 +283,9 @@ Would like to be able to do 'def' within the interactive shell, and hence
 update module definitions. Each def a(..) would add a new pattern match for
 function a. Need 'undef a' or 'undef a/2' to reset.
 
+Maybe all we need is to fetch the abstract_code chunk, update it,
+recompile and reload.
+
 Promote binaries
 ----------------
  
@@ -296,6 +299,15 @@ However this adds some awkwardness for basic operations like concatenation:
 
 Perhaps there should be a binary concatenation operator, e.g. +++ (ugh)
 
+Preserve comments
+-----------------
+
+Extend the abstract form to preserve comments, so that rfe2erl can keep them
+as well.
+
+    a = 2 +  # adding's great   -->     A = 2 +  % adding's great
+        3                                   3
+
 Miscellaneous
 -------------
 
@@ -306,3 +318,10 @@ Miscellaneous
 * Occam uses '?' for receive, which is nicely compact and mirrors '!' for
   send. But then you need 'alt' to handle pattern matching and timeouts,
   which is pretty much the same as erlang's 'receive'.
+
+* rfe_pp module, and erl2rfe
+
+* Reia uses (1,2,3) for tuples instead of {1,2,3}. Should this be copied?
+  Would it introduce too much ambiguity around function calls? Can we re-use
+  {..} syntax for something else, e.g. dict:from_list?
+

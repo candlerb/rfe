@@ -60,6 +60,16 @@ You can also define the function and call it without binding it to a variable.
 
     fun() -> receive Y -> io:write(Y) after 0 -> io:write(nothing) end end ().
 
+Interactive with GUI toolbar
+----------------------------
+
+    erl -s toolbar
+
+gives you an interactive shell plus a GUI toolbar (for monitoring processes,
+starting the debugger, and viewing ETS/Mnesia tables)
+
+[More info and examples](http://ns.erlang.org/documentation/doc-5.2/doc/getting_started/getting_started.html)
+
 Compiling erlang
 ----------------
 
@@ -127,6 +137,15 @@ Now we can compile and run it like this:
 The -s flags mean that first factorial2:main is called with the given
 argument; once that has completed, init:stop() is called which terminates
 the erlang runtime.
+
+Using -extra arguments
+----------------------
+
+Another way of passing arguments to a program is to use
+
+    erl ... -extra MORE ARGS HERE
+
+These values are returned by init:get_plain_arguments() as a list of strings.
 
 ebin directory
 --------------

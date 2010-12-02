@@ -22,6 +22,11 @@ parse(erl) ->
   % {ok, Tokens, _} = erl_scan:string(binary_to_list(File)),
   % {ok, Form} = erl_parse:parse_form(Tokens),
   {ok, Forms} = epp:parse_file(Fname, [], []),
+  Forms;
+
+parse(rfe) ->
+  [Fname] = init:get_plain_arguments(),
+  {ok, Forms} = rfepp:parse_file(Fname, [], []),
   Forms.
 
 emit(abs, Forms) ->

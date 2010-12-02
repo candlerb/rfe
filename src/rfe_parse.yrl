@@ -3,7 +3,7 @@
 %% %CopyrightBegin%
 %% 
 %% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% Modified by Brian Candler 2009.
+%% Modified by Brian Candler 2009-2010.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in

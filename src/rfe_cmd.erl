@@ -1,9 +1,9 @@
 -module(rfe_cmd).
--export([erl2erl/0, erl2term/0, beam2erl/0]).
+-export([erl2erl/0, erl2abs/0, beam2erl/0]).
 
-erl2term() ->
+erl2abs() ->
   Forms = parse(erl),
-  emit(term, Forms).
+  emit(abs, Forms).
 
 erl2erl() ->
   Forms = parse(erl),
@@ -32,7 +32,7 @@ parse(erl) ->
   {ok, Forms} = epp:parse_file(Fname, [], []),
   Forms.
 
-emit(term, Forms) ->
+emit(abs, Forms) ->
   io:format("% ~w forms~n~p", [length(Forms), Forms]);
 
 emit(erl, Forms) ->

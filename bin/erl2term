@@ -1,2 +1,4 @@
 #!/bin/sh
+# The Abstract form is documented at:
+# http://www.erlang.org/doc/apps/erts/absform.html
 erl -pa ebin -pa ../ebin -noshell -s rfe_cmd erl2term -s init stop -extra "$@"

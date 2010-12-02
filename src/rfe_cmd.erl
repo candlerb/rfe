@@ -1,17 +1,9 @@
 -module(rfe_cmd).
--export([erl2erl/0, erl2abs/0, beam2erl/0]).
+-export([convert/1]).
 
-erl2abs() ->
-  Forms = parse(erl),
-  emit(abs, Forms).
-
-erl2erl() ->
-  Forms = parse(erl),
-  emit(erl, Forms).
-
-beam2erl() ->
-  Forms = parse(beam),
-  emit(erl, Forms).
+convert([From, To]) ->
+  Forms = parse(From),
+  emit(To, Forms).
 
 parse(beam) ->
   [Fname] = init:get_plain_arguments(),

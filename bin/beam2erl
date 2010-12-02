@@ -1,4 +1,4 @@
 #!/bin/sh
 # Reads abstract code from .beam file compiled with +debug_info
 # and output it as pretty-printed erlang source
-erl -pa ebin -pa ../ebin -noshell -s rfe_cmd beam2erl -s init stop -extra "$@"
+erl -pa ebin -pa ../ebin -noshell -s rfe_cmd convert beam erl -s init stop -extra "$@"

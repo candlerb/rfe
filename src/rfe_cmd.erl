@@ -18,7 +18,7 @@ parse(beam) ->
   {ok, File} = file:read_file(Fname),
   Chunks = beam_lib:chunks(File, [abstract_code]),
   case Chunks of
-  {ok, {Mod, [{abstract_code,{raw_abstract_v1,Forms}}]}}
+  {ok, {_Mod, [{abstract_code,{raw_abstract_v1,Forms}}]}}
     -> Forms;
   {ok,{rfe_parse,[{abstract_code,no_abstract_code}]}}
     -> erlang:error(no_abstract_code)
@@ -36,4 +36,12 @@ emit(abs, Forms) ->
   io:format("% ~w forms~n~p", [length(Forms), Forms]);
 
 emit(erl, Forms) ->
-  lists:foreach(fun(Form) -> io:put_chars(erl_pp:form(Form)) end, Forms).
+  lists:foreach(fun(Form) ->
+	case Form of
+		{function, _, _, _, _} ->
+			io:nl();
+		_ ->
+			undefined
+	end,
+	io:put_chars(erl_pp:form(Form))
+  end, Forms).

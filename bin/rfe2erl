@@ -1,4 +1,0 @@
-#!/bin/sh
-# This just reads in erlang code and writes back erlang code.
-# It's an erlang pretty-printer.
-erl -pa ebin -pa ../ebin -noshell -s rfe_cmd convert rfe erl -s init stop -extra "$@"

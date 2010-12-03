@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Ruby Flavoured Erlang Translator
+#
+#  rfet foo.erl         # erl -> erl (Erlang pretty-printer)
+#  rfet foo.erl -b abs  # erl -> abstract form
+#  rfet foo.erl -b ref  # erl -> rfe
+#  rfet foo.beam        # beam -> erl
+#  rfet foo.beam -b abs # beam -> abstract form
+#  rfet foo.beam -b ref # beam -> rfe
+#  rfet foo.rfe         # rfe -> erl
+
+erl -pa ebin -pa ../ebin -noshell -s rfe_cmd convert -s init stop -- "$@"

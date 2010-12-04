@@ -1,5 +1,11 @@
-Line breaks, and reclaiming the semicolon
------------------------------------------
+Basic Ruby-Flavoured Erlang
+===========================
+
+Stage 1: Line breaks, and reclaiming the semicolon
+--------------------------------------------------
+
+Syntax becomes line-oriented. Semicolon at end is optional, and allows
+multiple items to be joined.
 
 * Expressions separated by newline or semicolon
 
@@ -15,20 +21,18 @@ Line breaks, and reclaiming the semicolon
 
 * This in turn means removing other uses of semicolon
 
-* Guards: use 'and' and 'or' for ',' and ';'
-
-* Fun clauses: see below for new syntax
+* Guards: use 'and' and 'or' instead of ',' and ';'
 
 * Block structure for try
 
         begin                   -->     try
-          foo                               foo()
+          foo()                             foo()
         rescue error:badarith           catch
           "oops"                            error:badarith ->
         rescue => e                             "oops";
-          "doh!"                                    error:E ->
+          "doh!"                            error:E ->
         ensure                                  "doh!"
-          io.write "done"               after
+          io:write("done")              after
         end                                 io:write("done")
                                         end
 
@@ -36,13 +40,13 @@ Line breaks, and reclaiming the semicolon
 
 * 'case' with expression maps to pattern matching
 
-        case x                  -->     case X of
-        when {:foo}                         {foo} ->
-          io.write "is foo"                     io.write("is foo");
-        when {:bar, y}                      {bar,Y} ->
-          io:write y                            io.write(Y);
+        case X                  -->     case X of
+        when {foo}                          {foo} ->
+          io:write("is foo")                    io:write("is foo");
+        when {bar, Y}                       {bar,Y} ->
+          io:write(Y)                           io:write(Y);
         else                                _ ->
-          io.write "doh!"                       io.write("doh!")
+          io:write("doh!")                      io:write("doh!")
         end                             end
 
 We can also implement case with rescues/ensure, which would map to
@@ -51,24 +55,24 @@ We can also implement case with rescues/ensure, which would map to
 * case without expression maps to 'if', and just tests guard expressions
 
         case                    -->     if
-        when is_integer(x)                  is_integer(X)
+        when is_integer(X)                  is_integer(X) ->
           "integer"                             "integer";
-        when is_float(x)                    is_float(X);
+        when is_float(X)                    is_float(X) ->
           "float"                               "float";
         else                                true
           "unknown"                             "unknown"
         end                             end
 
-(Can wrap in 'try' for rescues/ensure)
+(Can wrap in 'try' to add rescues/ensure)
 
 * 'if' maps to nested 'case' statements, so that it can use expressions
   with side-effects
 
-        if foo < 3              -->     case foo() < 3 of
+        if Foo < 3            -->     case Foo < 3 of
           "too low"                         true ->
-        elsif foo > 5                   "too low";
+        elsif Foo > 5                   "too low";
           "too high"                        _ ->
-        else                                    case foo() > 5 of
+        else                                    case Foo > 5 of
           "just right"                              true ->
         end                                             "too high";
                                                     _ ->
@@ -76,79 +80,175 @@ We can also implement case with rescues/ensure, which would map to
                                                 end
                                         end
 
+(perhaps this could be optimised, so if (expr) == 3 turns into
+case (expr) of 3 -> ...)
+
 * inline rescue
 
-        a = foo rescue bar      -->     A = try
+        A = foo() rescue bar()  -->     A = try
                                             foo()
                                         catch
                                             error:_ ->
                                                 bar()
                                         end.
 
-Function calls and lambdas
---------------------------
+(do we want to assign the error to something which can be used as "$!" ?
+This might involve assigning vars like _err1, _err2 etc and remembering
+which was the most recently bound)
 
-* 'Block' syntax {..} and do..end creates an extra first argument to
-  a function call.
+* function definitions
 
-        a = [1,2,3]                     -->     A = [1,2,3],
-        lists.each(a) { |x| puts x }            lists:each(fun(X) -> puts X end, A)
+Start with 'def' and end with 'end'
 
-* New syntax for funs
-
-        a = fun { |x| x * x }           -->     A = fun(X) -> X * X end
-
-        a = fun { |{x}| x * x           -->     A = fun({X}) -> X * X;
-                  |{x,y}| x * y }                      ({X,Y}) -> X * Y end
-
-* 'lambda' as an alias for 'fun'
-
-Function definitions
---------------------
-
-* Start with 'def' and end with 'end'
-
-        def a({x})                -->   a({X}) ->
-          x * x                             X * X,
-        end                             a({X,Y}) ->
-        def a({x,y})                          X * Y.
-          x * y
+        def foo(Bar) when Bar > 1       foo(Bar) when Bar > 1 ->
+          Bar * 2                         Bar * 2.
         end
+
+        def a({X})                -->   a({X}) ->
+          X * X                             X * X,
+        end                             a({X,Y}) ->
+        def a({X,Y})                          X * Y.
+          X * Y
+        end
+
+If there are multiple definitions of foo/1 in the same source file with the
+same arity, combine them into clauses of foo/1.  (Do we enforce that they
+are adjacent?  In any case they need to be in the correct order for pattern
+matching)
 
 * Top-level 'rescue'(s) and/or 'ensure' wrap the function in try/catch/after
 
-        def a(x)                -->     a(X) ->
-          1.0 / x                           try
+        def a(X)                -->     a(X) ->
+          1.0 / X                           try
         rescue error:badarith                   1.0 / X
           1.0                               catch
         end                                     error:badarith ->
-                                                  1.0
+                                                    1.0
                                           end.
 
-(It might be good to allow these functions to be in an arbitrary order in
-the source file, and to link branches of the same name+arity together
-automatically at the end - but not essential.  In any case the user needs to
-put the definitions in the correct order)
+* what syntax to use for anonymous functions with multiple clauses?
 
-Similarly, it would be good to avoid the 'export' keyword, instead using
+        ?                               -->     A = fun({X}) -> X * X;
+                                                       ({X,Y}) -> X * Y end
+
+Stage 2: sugar for blocks and self
+----------------------------------
+
+I observe that in the Erlang standard library:
+- many functions take a fun as the first argument
+- many functions take the main "thing" being operated on as the last argument
+
+* block syntax for function calls
+
+If you provide a 'block' after a function call, it is prepended as the first
+argument in the call
+
+        A = [1,2,3]                     -->     A = [1,2,3],
+        lists:each(A) { |X| puts(X) }           lists:each(fun(X) -> puts(X) end, A)
+
+(Note: should block notation support multiple clauses?)
+
+* also use block syntax for funs? See above re. funs with multiple clauses
+
+        A = fun { |X| X * X }           -->     A = fun(X) -> X * X end
+
+        A = fun { |{X}| X * X           -->     A = fun({X}) -> X * X;
+                  |{X,Y}| X * Y }                      ({X,Y}) -> X * Y end
+
+* dot notation for function calls
+
+If you provide value.fn(args) then the value is passed as the last argument
+
+        A = [1,2,3]                     -->     A = [1,2,3],
+        A.lists:each() { |X| puts(X) }          lists:each(fun(X) -> puts(X) end, A)
+
+        B = {x,y,z}                     -->     B = {x,y,z},
+        B.element(2)                            element(2, B)
+
+(This is almost as convenient as B[1] in Reia!)
+
+We could also make the () optional for dot function calls with no arguments,
+giving A.lists:each { |X puts(x) }
+
+This gives a 'chained' syntax for nested function calls, e.g.
+
+        A.lists:map { |X| X*2 }.lists:each { |X| puts(X) }
+
+                                        -->     lists:each(fun(X) -> puts(X),
+                                                   lists:map(fun(X) -> X*2, A))
+
+(Note: when converting erlang to rfe, we may have to decide whether to use
+the dot notation for all function calls, or just some, or none)
+
+Stage 3: interactive rfe
+------------------------
+
+* module syntax
+
+Replace -module(name) with module name ... end. Probably don't allow
+multiple module definitions within the same source file though, as erlang
+assumes it can load module "foo" from file "foo.beam"
+
+Allow functions to be defined within the interactive shell, like Reia, and
+hence be able to update module definitions.  Each def a(..) would add
+(prepend?) a new pattern match for function a.  Need 'undef a' or 'undef
+a/2' to reset.
+
+Maybe all we need is to fetch the abstract_code chunk, update it,
+recompile and reload.
+
+Wishlist (unprioritised)
+========================
+
+* Implement rfe_pp, so we can convert erlang into RFE
+
+* Implement rfec
+
+* At the moment we compile to the Erlang abstract form. This is good because
+there's existing code to convert this back out to Erlang, but unfortunately
+macros and records have to be expanded by then. I would like to keep
+macros and records as-is, so you can translate a .hrl into .rfh and vice
+versa, and keep -include directives.
+
+Would also like to extend the abstract form to preserve comments:
+
+    A = 2 +  # adding's great   -->     A = 2 +  % adding's great
+        3                                   3
+
+* It would more ruby-like to avoid the 'export' keyword, instead using
 'public' and 'private' to set visibility
 
         private
           # default is private here
         private :a
-        public 'a/2'
+        public 'a/2'  # ??
 
-* Should we allow nested defs? Would just be sugar for lambda
+* Should we allow nested defs? Would just be sugar for fun
 
-        def a(x)                ->      a(X) ->
-          def sq(y)                         Sq = fun(Y) ->
-            y*y                         Y*Y,
+        def a(X)                ->      a(X) ->
+          def sq(Y)                         Sq = fun(Y) ->
+            Y*Y                                 Y*Y,
           end                               Sq(X) + 2*X.
-          sq(x) + 2*x
+          sq(X) + 2*X
         end
 
-Reclaim the colon
------------------
+* Optional value arguments
+
+  def foo(A, B:=12, C:="hello", D) ->	foo(A, D) -> foo(A, 12, "hello", D).
+    ...					foo(A, B, D) -> foo(A, B, "hello", D).
+  end					foo(A, B, C, D) -> ... .
+
+(note that '=' is pattern match, so we need a different syntax
+for identifying defaults)
+
+Undecided
+=========    
+
+The consequences of the following changes are not fully thought through
+and may never be implemented.
+
+Reclaim the colon?
+------------------
 
 * Mark atoms with colon, like ruby symbols
 
@@ -156,12 +256,21 @@ Reclaim the colon
         :'foo bar       -->     'foo bar'
         :foo()          -->     foo()
 
-* Use dot instead of colon for module function calls
+* Use dot instead of colon for module function calls?
 
         :io.:write()    -->     io:write()
 
-Reclaim the upper-case letter, and allow bare function calls
-------------------------------------------------------------
+This conflicts with the dot syntax already introduced. Is it sufficiently
+unambiguous to retain colon here? Consider:
+
+        io:write
+        :io:write
+        io::write
+        :io::write
+
+
+Reclaim the upper-case letter, and allow bare function calls?
+-------------------------------------------------------------
 
 * Variables start with lower-case letters
 
@@ -183,6 +292,11 @@ Reclaim the upper-case letter, and allow bare function calls
         a = :io         -->     a = io,
         a.write         -->     a:write()
 
+Maybe this 'poetry mode' is going to far?
+But if not, need a way to get the fun handle, e.g.
+	&io.write	->	io:write
+	io.write	->	io:write()
+
 Reclaim the % and operators
 ---------------------------
 
@@ -193,7 +307,7 @@ Reclaim the % and operators
 * Use % instead of mod operator
 
 * Use & | ^ << >> instead of bsl bsr band bor bxor bsl bsr
-  (as infix operators, I don't think << and >> will clash with binaries)
+  (as infix operators; I don't think << and >> will clash with binaries)
 
 * and/&& map to 'andalso'; or/|| map to 'orelse'
   (does || clash with list and binary comprehensions? Maybe we should just
@@ -206,13 +320,14 @@ Miscellaneous
 
 * Add ? : ternary operator
 
-* Need a replacement preprocessor :-( Should we use words starting with
+* Replacement preprocessor. Should we use words starting with
   capital letters as macros?
 
-* Need a replacement syntax for compiler directives
-    
-Future/blue sky ideas
-=====================
+* Replacement syntax for compiler directives
+
+
+Even more blue sky ideas
+========================
 
 Patterns
 --------
@@ -276,37 +391,29 @@ won't be garbage-collected automatically, so it's probably still essential
 to be able to register and unregister them; although careful use of linking
 may help)
 
-Dynamic method definitions
---------------------------
-
-Would like to be able to do 'def' within the interactive shell, and hence
-update module definitions. Each def a(..) would add a new pattern match for
-function a. Need 'undef a' or 'undef a/2' to reset.
-
-Maybe all we need is to fetch the abstract_code chunk, update it,
-recompile and reload.
-
 Promote binaries
 ----------------
  
-I would like the "..." syntax to produce a binary rather than a list of
-characters; perhaps have another syntax like %l{...} for a list of
-characters.
+I would like the double-quote "..." syntax to produce a binary rather than a
+list of characters; perhaps have another syntax like %l{...} for a list of
+characters, or use single quotes.
 
 However this adds some awkwardness for basic operations like concatenation:
 
    c = <<a/binary, b/binary>>
 
 Perhaps there should be a binary concatenation operator, e.g. +++ (ugh)
+else it's c = list_to_binary([a,b])
 
-Preserve comments
------------------
+Tuples and hash literals
+------------------------
 
-Extend the abstract form to preserve comments, so that rfe2erl can keep them
-as well.
+* Reia uses (1,2,3) for tuples instead of {1,2,3}. Should this be copied?
+  Would it introduce too much ambiguity around function calls? Then we can
+  re-use {..} syntax for dict literals
 
-    a = 2 +  # adding's great   -->     A = 2 +  % adding's great
-        3                                   3
+  {}				->	dict:new()
+  {:foo=>1, :bar=>2}		->	dict:from_list([(foo,1),(bar,2)])
 
 Miscellaneous
 -------------
@@ -318,10 +425,4 @@ Miscellaneous
 * Occam uses '?' for receive, which is nicely compact and mirrors '!' for
   send. But then you need 'alt' to handle pattern matching and timeouts,
   which is pretty much the same as erlang's 'receive'.
-
-* rfe_pp module, and erl2rfe
-
-* Reia uses (1,2,3) for tuples instead of {1,2,3}. Should this be copied?
-  Would it introduce too much ambiguity around function calls? Can we re-use
-  {..} syntax for something else, e.g. dict:from_list?
 

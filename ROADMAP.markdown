@@ -98,7 +98,7 @@ which was the most recently bound)
 
 * function definitions
 
-Start with 'def' and end with 'end'
+    Start with 'def' and end with 'end'
 
         def foo(Bar) when Bar > 1       foo(Bar) when Bar > 1 ->
           Bar * 2                         Bar * 2.
@@ -111,10 +111,10 @@ Start with 'def' and end with 'end'
           X * Y
         end
 
-If there are multiple definitions of foo/1 in the same source file with the
-same arity, combine them into clauses of foo/1.  (Do we enforce that they
-are adjacent?  In any case they need to be in the correct order for pattern
-matching)
+    If there are multiple definitions of foo/1 in the same source file with the
+    same arity, combine them into clauses of foo/1.  (Do we enforce that they
+    are adjacent?  In any case they need to be in the correct order for pattern
+    matching)
 
 * Top-level 'rescue'(s) and/or 'ensure' wrap the function in try/catch/after
 
@@ -135,18 +135,20 @@ Stage 2: sugar for blocks and self
 ----------------------------------
 
 I observe that in the Erlang standard library:
-- many functions take a fun as the first argument
-- many functions take the main "thing" being operated on as the last argument
+* many functions take a fun as the first argument
+* many functions take the main "thing" being operated on as the last argument
+
+This suggests the following additional permitted syntax
 
 * block syntax for function calls
 
-If you provide a 'block' after a function call, it is prepended as the first
-argument in the call
+    If you provide a 'block' after a function call, it is prepended as the first
+    argument in the call
 
         A = [1,2,3]                     -->     A = [1,2,3],
         lists:each(A) { |X| puts(X) }           lists:each(fun(X) -> puts(X) end, A)
 
-(Note: should block notation support multiple clauses?)
+    (Note: should block notation support multiple clauses?)
 
 * also use block syntax for funs? See above re. funs with multiple clauses
 
@@ -157,7 +159,7 @@ argument in the call
 
 * dot notation for function calls
 
-If you provide value.fn(args) then the value is passed as the last argument
+    If you provide value.fn(args) then the value is passed as the last argument
 
         A = [1,2,3]                     -->     A = [1,2,3],
         A.lists:each() { |X| puts(X) }          lists:each(fun(X) -> puts(X) end, A)
@@ -165,20 +167,20 @@ If you provide value.fn(args) then the value is passed as the last argument
         B = {x,y,z}                     -->     B = {x,y,z},
         B.element(2)                            element(2, B)
 
-(This is almost as convenient as B[1] in Reia!)
+    (This is almost as convenient as B[1] in Reia!)
 
-We could also make the () optional for dot function calls with no arguments,
-giving A.lists:each { |X puts(x) }
+    We could also make the () optional for dot function calls with no arguments,
+    giving `A.lists:each { |X puts(x) }`
 
-This gives a 'chained' syntax for nested function calls, e.g.
+    This gives a 'chained' syntax for nested function calls, e.g.
 
         A.lists:map { |X| X*2 }.lists:each { |X| puts(X) }
 
                                         -->     lists:each(fun(X) -> puts(X),
                                                    lists:map(fun(X) -> X*2, A))
 
-(Note: when converting erlang to rfe, we may have to decide whether to use
-the dot notation for all function calls, or just some, or none)
+    (Note: when converting erlang to rfe, we may have to decide whether to use
+    the dot notation for all function calls, or just some, or none)
 
 Stage 3: interactive rfe
 ------------------------
@@ -210,10 +212,10 @@ macros and records have to be expanded by then. I would like to keep
 macros and records as-is, so you can translate a .hrl into .rfh and vice
 versa, and keep -include directives.
 
-Would also like to extend the abstract form to preserve comments:
+    Would also like to extend the abstract form to preserve comments:
 
-    A = 2 +  # adding's great   -->     A = 2 +  % adding's great
-        3                                   3
+        A = 2 +  # adding's great   -->     A = 2 +  % adding's great
+            3                                   3
 
 * It would more ruby-like to avoid the 'export' keyword, instead using
 'public' and 'private' to set visibility
@@ -234,12 +236,12 @@ Would also like to extend the abstract form to preserve comments:
 
 * Optional value arguments
 
-  def foo(A, B:=12, C:="hello", D) ->	foo(A, D) -> foo(A, 12, "hello", D).
-    ...					foo(A, B, D) -> foo(A, B, "hello", D).
-  end					foo(A, B, C, D) -> ... .
+      def foo(A, B:=12, C:="hello", D) ->	foo(A, D) -> foo(A, 12, "hello", D).
+        ...					foo(A, B, D) -> foo(A, B, "hello", D).
+      end					foo(A, B, C, D) -> ... .
 
-(note that '=' is pattern match, so we need a different syntax
-for identifying defaults)
+    (note that '=' is pattern match, so we need a different syntax
+    for identifying defaults)
 
 Undecided
 =========    
@@ -260,8 +262,8 @@ Reclaim the colon?
 
         :io.:write()    -->     io:write()
 
-This conflicts with the dot syntax already introduced. Is it sufficiently
-unambiguous to retain colon here? Consider:
+    This conflicts with the dot syntax already introduced. Is it sufficiently
+    unambiguous to retain colon here? Consider:
 
         io:write
         :io:write
@@ -292,8 +294,8 @@ Reclaim the upper-case letter, and allow bare function calls?
         a = :io         -->     a = io,
         a.write         -->     a:write()
 
-Maybe this 'poetry mode' is going to far?
-But if not, need a way to get the fun handle, e.g.
+    Maybe this 'poetry mode' is going to far?
+    But if not, need a way to get the fun handle, e.g.
 	&io.write	->	io:write
 	io.write	->	io:write()
 
@@ -400,10 +402,10 @@ characters, or use single quotes.
 
 However this adds some awkwardness for basic operations like concatenation:
 
-   c = <<a/binary, b/binary>>
+    c = <<a/binary, b/binary>>
 
 Perhaps there should be a binary concatenation operator, e.g. +++ (ugh)
-else it's c = list_to_binary([a,b])
+else it's `c = list_to_binary([a,b])`
 
 Tuples and hash literals
 ------------------------
@@ -412,13 +414,13 @@ Tuples and hash literals
   Would it introduce too much ambiguity around function calls? Then we can
   re-use {..} syntax for dict literals
 
-  {}				->	dict:new()
-  {:foo=>1, :bar=>2}		->	dict:from_list([(foo,1),(bar,2)])
+        {}			->	dict:new()
+        {:foo=>1, :bar=>2}	->	dict:from_list([(foo,1),(bar,2)])
 
 Miscellaneous
 -------------
 
-* Maybe: && and || map to case statements, so you can say 'x = y || "default"'
+* Maybe: && and || map to case statements, so you can say `x = y || "default"`
   (whereas 'and' and 'or' only work on boolean values). But then what would
   we decide are false values? Atom :undefined perhaps?
 

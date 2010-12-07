@@ -83,19 +83,6 @@ We can also implement case with rescues/ensure, which would map to
 (perhaps this could be optimised, so if (expr) == 3 turns into
 case (expr) of 3 -> ...)
 
-* inline rescue
-
-        A = foo() rescue bar()  -->     A = try
-                                            foo()
-                                        catch
-                                            error:_ ->
-                                                bar()
-                                        end.
-
-(do we want to assign the error to something which can be used as "$!" ?
-This might involve assigning vars like _err1, _err2 etc and remembering
-which was the most recently bound)
-
 * function definitions
 
     Start with 'def' and end with 'end'
@@ -131,6 +118,8 @@ which was the most recently bound)
         ?                               -->     A = fun({X}) -> X * X;
                                                        ({X,Y}) -> X * Y end
 
+(Remember that each clause can have a 'where' guard too)
+
 Stage 2: sugar for blocks and self
 ----------------------------------
 
@@ -138,7 +127,7 @@ I observe that in the Erlang standard library:
 * many functions take a fun as the first argument
 * many functions take the main "thing" being operated on as the last argument
 
-This suggests the following additional permitted syntax
+This suggests the following additional permitted syntax:
 
 * block syntax for function calls
 
@@ -150,11 +139,11 @@ This suggests the following additional permitted syntax
 
     (Note: should block notation support multiple clauses?)
 
-* also use block syntax for funs? See above re. funs with multiple clauses
+* use block syntax for funs too? See note above re. funs with multiple clauses
 
-        A = fun { |X| X * X }           -->     A = fun(X) -> X * X end
+        A = fun { |X| X * X }         ? -->     A = fun(X) -> X * X end
 
-        A = fun { |{X}| X * X           -->     A = fun({X}) -> X * X;
+        A = fun { |{X}| X * X         ? -->     A = fun({X}) -> X * X;
                   |{X,Y}| X * Y }                      ({X,Y}) -> X * Y end
 
 * dot notation for function calls
@@ -179,60 +168,95 @@ This suggests the following additional permitted syntax
                                         -->     lists:each(fun(X) -> puts(X),
                                                    lists:map(fun(X) -> X*2, A))
 
-    (Note: when converting erlang to rfe, we may have to decide whether to use
-    the dot notation for all function calls, or just some, or none)
+    Note: does this conflict with record access syntax? e.g.
+
+        Opts#server_opts.port
+
+    Note: when converting erlang to rfe, we may have to decide whether to use
+    the dot notation for all function calls, or just some, or none.
 
 Stage 3: interactive rfe
 ------------------------
 
 * module syntax
 
-Replace -module(name) with module name ... end. Probably don't allow
-multiple module definitions within the same source file though, as erlang
-assumes it can load module "foo" from file "foo.beam"
+    Replace `-module(name)` with `module name ... end`. Probably don't allow
+    multiple module definitions within the same source file though, as erlang
+    assumes it can load module "foo" from file "foo.beam"
 
-Allow functions to be defined within the interactive shell, like Reia, and
-hence be able to update module definitions.  Each def a(..) would add
-(prepend?) a new pattern match for function a.  Need 'undef a' or 'undef
-a/2' to reset.
+    Allow functions to be defined within the interactive shell, like Reia, and
+    hence be able to update module definitions.  Each def a(..) would add
+    (prepend?) a new pattern match for function a.  Need 'undef a' or 'undef
+    a/2' to reset.
 
-Maybe all we need is to fetch the abstract_code chunk, update it,
-recompile and reload.
+    Maybe all we need is to fetch the abstract_code chunk, update it,
+    recompile and reload.
 
 Wishlist (unprioritised)
 ========================
 
+* tail conditionals
+
+    io:write(...) if Debug
+
+(This is useful as it needs no explicit 'else true' branch)
+
+* inline rescue
+
+        A = foo() rescue bar()  -->     A = try
+                                            foo()
+                                        catch
+                                            error:_ ->
+                                                bar()
+                                        end.
+
+(do we want to assign the error to something which can be used as "$!" ?
+This might involve assigning vars like _err1, _err2 etc and remembering
+which was the most recently bound, ugh)
+
 * Implement rfe_pp, so we can convert erlang into RFE
 
-* Implement rfec
+* Implement rfec (erlc is written in C, but calls to erl_compile)
 
 * At the moment we compile to the Erlang abstract form. This is good because
 there's existing code to convert this back out to Erlang, but unfortunately
-macros and records have to be expanded by then. I would like to keep
-macros and records as-is, so you can translate a .hrl into .rfh and vice
-versa, and keep -include directives.
+macros and includes have to be expanded by then.
 
-    Would also like to extend the abstract form to preserve comments:
+    Ideally I would like to keep macros and includes as-is, so you can
+    translate .hrl into .rfh and back again, but this may not work in all
+    cases. Fortunately, some of the pathological ones are disallowed anyway:
 
-        A = 2 +  # adding's great   -->     A = 2 +  % adding's great
+        % This doesn't work
+        foo(A, B
+        -ifdef(extra_arg).
+        ,C
+        -endif.
+        ) -> 0.
+ 
+        % Nor does this
+        -ifdef(asdf).
+        junk
+        -endif.
+
+    Macros which are not valid Erlang syntactic forms _do_ work, but are
+    not recommended:
+
+        -define(Lbracket, [).
+        -define(Rbracket, ]).
+
+        foo() ->
+          bar( ?Lbracket 1,2,3 ?Rbracket ).
+
+    So perhaps a restricted solution would be acceptable, keeping the
+    macro calls in the abstract form. Note that ?m(Y) might represent
+    <expanded>(Y) or a parameterised macro call, but maybe that doesn't
+    matter when translating erl<->rfe.
+
+* I would also like to extend the abstract form to preserve comments
+and position of newlines:
+
+        A = 2 +  % adding's great   -->     A = 2 +  % adding's great
             3                                   3
-
-* It would more ruby-like to avoid the 'export' keyword, instead using
-'public' and 'private' to set visibility
-
-        private
-          # default is private here
-        private :a
-        public 'a/2'  # ??
-
-* Should we allow nested defs? Would just be sugar for fun
-
-        def a(X)                ->      a(X) ->
-          def sq(Y)                         Sq = fun(Y) ->
-            Y*Y                                 Y*Y,
-          end                               Sq(X) + 2*X.
-          sq(X) + 2*X
-        end
 
 * Optional value arguments
 
@@ -241,13 +265,18 @@ versa, and keep -include directives.
       end					foo(A, B, C, D) -> ... .
 
     (note that '=' is pattern match, so we need a different syntax
-    for identifying defaults)
+    for identifying defaults. Maybe real erlangers would use a record.)
 
 Undecided
 =========    
 
 The consequences of the following changes are not fully thought through
 and may never be implemented.
+
+I like the simplicity of Erlang's convention: variables begin with
+Uppercase, atoms begin with lower case (and atoms are also usable as
+function names and module names).  Sticking with this would also make it
+easier to switch between real erlang and rfe.
 
 Reclaim the colon?
 ------------------
@@ -327,6 +356,22 @@ Miscellaneous
 
 * Replacement syntax for compiler directives
 
+* It would more ruby-like to avoid the 'export' keyword, instead using
+'public' and 'private' to set visibility
+
+        private
+          # default is private here
+        private :a
+        public 'a/2'  # ??
+
+* Should we allow nested defs? Would just be sugar for fun
+
+        def a(X)                ->      a(X) ->
+          def sq(Y)                         Sq = fun(Y) ->
+            Y*Y                                 Y*Y,
+          end                               Sq(X) + 2*X.
+          sq(X) + 2*X
+        end
 
 Even more blue sky ideas
 ========================
@@ -412,7 +457,7 @@ Tuples and hash literals
 
 * Reia uses (1,2,3) for tuples instead of {1,2,3}. Should this be copied?
   Would it introduce too much ambiguity around function calls? Then we can
-  re-use {..} syntax for dict literals
+  re-use {..} syntax for dict literals (or proplists)
 
         {}			->	dict:new()
         {:foo=>1, :bar=>2}	->	dict:from_list([(foo,1),(bar,2)])

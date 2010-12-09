@@ -760,7 +760,7 @@ new_location(Ln, {Le,_}, {Lf,_}) ->
 %%  nested conditionals and repeated 'else's.
 
 skip_toks(From, St, [I|Sis]) ->
-    case io:scan_rfe_form(St#rfepp.file, '', St#rfepp.location) of
+    case rfeio:scan_rfe_form(St#rfepp.file, '', St#rfepp.location) of
 	{ok,[{'-',_Lh},{atom,_Li,ifdef}|_Toks],Cl} ->
 	    skip_toks(From, St#rfepp{location=Cl}, [ifdef,I|Sis]);
 	{ok,[{'-',_Lh},{atom,_Li,ifndef}|_Toks],Cl} ->
@@ -858,7 +858,7 @@ get_macro_uses(M, U) ->
     end.
 
 %% Macro expansion
-%% Note: io:scan_rfe_form() does not return comments or white spaces.
+%% Note: rfeio:scan_rfe_form() does not return comments or white spaces.
 expand_macros([{'?',_Lq},{atom,_Lm,M}=MacT|Toks], Ms) ->
     expand_macros(atom, MacT, M, Toks, Ms);
 %% Special macros

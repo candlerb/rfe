@@ -777,10 +777,8 @@ scan_char([$\\|Cs]=Cs0, St, Line, Col, Toks) ->
             scan_error(Error, Line, Col, Line, Ncol, Ncs);
         {eof,Ncol} ->
             scan_error(char, Line, Col, Line, Ncol, eof);
-        {nl,Val,Str,Ncs,Ncol} ->
-            Attrs = attributes(Line, Col, St, "$\\"++Str),
-            Ntoks = [{char,Attrs,Val}|Toks],
-            scan1(Ncs, St, Line+1, Ncol, Ntoks);
+        {nl,Ncs,Ncol} ->
+            scan1(Ncs, St, Line+1, Ncol, Toks);
         {unicode,Val,Str,Ncs,Ncol} ->
             Attrs = attributes(Line, Col, St, "$\\"++Str),
             Ntoks = [{integer,Attrs,Val}|Toks], % UNI
@@ -832,10 +830,8 @@ u2l([$\n=C|Cs], Line, Col, St, Toks) ->
     u2l(Cs, Line+1, new_column(Col, 1), St, Ntoks);
 u2l([$\\|Cs], Line, Col, St, Toks) ->
     case scan_escape(Cs, Col) of
-        {nl,Val,ValStr,Ncs,Ncol} ->
-            Nstr = [$\\|ValStr],
-            Ntoks = unicode_nl_tokens(Line, Col, Nstr, Val, St, Toks, Ncs),
-            u2l(Ncs, Line+1, Ncol, St, Ntoks);
+        {nl,Ncs,Ncol} ->
+            u2l(Ncs, Line+1, Ncol, St, Toks);
         {unicode,Val,ValStr,Ncs,Ncol} ->
             Nstr = [$\\|ValStr],
             Ntoks = unicode_tokens(Line, Col, Nstr, Val, St, Toks, Ncs),
@@ -940,10 +936,8 @@ scan_string1([$\\|Cs]=Cs0, Line, Col, Q, Str, Wcs, Uni) ->
             {char_error,Ncs,Error,Line,Col,incr_column(Ncol, 1)};
         {eof,Ncol} ->
             {error,Line,incr_column(Ncol, 1),lists:reverse(Wcs),eof};
-        {nl,Val,ValStr,Ncs,Ncol} ->
-            Nstr = ?UNI_STR(Ncol, lists:reverse(ValStr, [$\\|Str])),
-            Nwcs = [Val|Wcs],
-            scan_string1(Ncs, Line+1, Ncol, Q, Nstr, Nwcs, Uni);
+        {nl,Ncs,Ncol} ->
+            scan_string1(Ncs, Line+1, Ncol, Q, Str, Wcs, Uni);
         {unicode,_Val,_ValStr,Ncs,Ncol} when Q =:= $' -> %' Emacs
             {char_error,Ncs,{illegal,character},Line,Col,incr_column(Ncol, 1)};
         {unicode,Val,ValStr,Ncs,Ncol} -> % UNI. Uni is set to Val.
@@ -1004,8 +998,8 @@ scan_escape([$x,H1], _Col) when ?HEX(H1) ->
 scan_escape([$x|Cs], Col) ->
     {error,Cs,{illegal,character},incr_column(Col, 1)};
 %% \^X -> CTL-X
-scan_escape([$^=C0,$\n=C|Cs], Col) ->
-    {nl,C,?UNI_STR(Col, [C0,C]),Cs,new_column(Col, 1)};
+scan_escape([$^,$\n|Cs], Col) ->
+    {nl,Cs,new_column(Col, 1)};
 scan_escape([$^=C0,C|Cs], Col) when ?CHAR(C) ->
     Val = C band 31,
     {Val,?UNI_STR(Col, [C0,C]),Cs,incr_column(Col, 2)};
@@ -1013,8 +1007,8 @@ scan_escape([$^], _Col) ->
     more;
 scan_escape([$^|eof], Col) ->
     {eof,incr_column(Col, 1)};
-scan_escape([$\n=C|Cs], Col) ->
-    {nl,C,?UNI_STR(Col, [C]),Cs,new_column(Col, 1)};
+scan_escape([$\n|Cs], Col) ->
+    {nl,Cs,new_column(Col, 1)};
 scan_escape([C0|Cs], Col) when ?CHAR(C0), ?UNI255(C0) ->
     C = escape_char(C0),
     {C,?UNI_STR(Col, [C0]),Cs,incr_column(Col, 1)};

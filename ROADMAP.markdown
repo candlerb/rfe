@@ -178,6 +178,10 @@ This suggests the following additional permitted syntax:
 Stage 3: interactive rfe
 ------------------------
 
+This could be tricky because erl_parse embeds knowledge about the language
+(e.g.  that forms end with 'dot'), although it's more difficult to work
+without this. Maybe we allow an optional dot after forms for now.
+
 * module syntax
 
     Replace `-module(name)` with `module name ... end`. Probably don't allow

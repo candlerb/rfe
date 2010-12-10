@@ -275,9 +275,12 @@ set_attribute(Tag, Attributes, Fun) when ?SETATTRFUN(Fun) ->
 string_thing($') -> "atom";   %' Stupid Emacs
 string_thing(_) -> "string".
 
+%% Note: white space does not include $\n as we have a token for that
 -define(WHITE_SPACE(C),
         is_integer(C) andalso
-         (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240)).
+         (C >= $\000 andalso C < $\n orelse
+          C >  $\n andalso C =< $\s orelse
+          C >= $\200 andalso C =< $\240)).
 -define(DIGIT(C), C >= $0, C =< $9).
 -define(CHAR(C), is_integer(C), C >= 0).
 
@@ -409,10 +412,11 @@ scan1([$\s|Cs], St, Line, Col, Toks) when St#rfe_scan.ws ->
     scan_spcs(Cs, St, Line, Col, Toks, 1);
 scan1([$\s|Cs], St, Line, Col, Toks) ->
     skip_white_space(Cs, St, Line, Col, Toks, 1);
-scan1([$\n|Cs], St, Line, Col, Toks) when St#rfe_scan.ws ->
-    scan_newline(Cs, St, Line, Col, Toks);
-scan1([$\n|Cs], St, Line, Col, Toks) ->
-    skip_white_space(Cs, St, Line+1, new_column(Col, 1), Toks, 0);
+%% TODO: coalesce adjacent newlines? But there may be whitespace too
+scan1([$\n=C|Cs], St, Line, Col, Toks) ->
+    Attrs = attributes(Line, Col, St, [C]),
+    Token = {nl,Attrs},
+    scan1(Cs, St, Line+1, new_column(Col, 1), [Token|Toks]);
 scan1([C|Cs], St, Line, Col, Toks) when C >= $A, C =< $Z ->
     scan_variable(Cs, St, Line, Col, Toks, [C]);
 scan1([C|Cs], St, Line, Col, Toks) when C >= $a, C =< $z ->
@@ -455,9 +459,9 @@ scan1([$$|Cs], St, Line, Col, Toks) ->
     scan_char(Cs, St, Line, Col, Toks);
 scan1([$\r|Cs], St, Line, Col, Toks) when St#rfe_scan.ws ->
     white_space_end(Cs, St, Line, Col, Toks, 1, "\r");
-scan1([C|Cs], St, Line, Col, Toks) when C >= $ß, C =< $ÿ, C =/= $÷ ->
+scan1([C|Cs], St, Line, Col, Toks) when C >= $\337, C =< $\377, C =/= $\367 ->
     scan_atom(Cs, St, Line, Col, Toks, [C]);
-scan1([C|Cs], St, Line, Col, Toks) when C >= $À, C =< $Þ, C /= $× ->
+scan1([C|Cs], St, Line, Col, Toks) when C >= $\300, C =< $\336, C =/= $\327 ->
     scan_variable(Cs, St, Line, Col, Toks, [C]);
 scan1([$\t|Cs], St, Line, Col, Toks) when St#rfe_scan.ws ->
     scan_tabs(Cs, St, Line, Col, Toks, 1);
@@ -627,9 +631,9 @@ scan_name([C|Cs], Ncs) when ?DIGIT(C) ->
     scan_name(Cs, [C|Ncs]);
 scan_name([$@=C|Cs], Ncs) ->
     scan_name(Cs, [C|Ncs]);
-scan_name([C|Cs], Ncs) when C >= $ß, C =< $ÿ, C =/= $÷ ->
+scan_name([C|Cs], Ncs) when C >= $\337, C =< $\377, C =/= $\367 ->
     scan_name(Cs, [C|Ncs]);
-scan_name([C|Cs], Ncs) when C >= $À, C =< $Þ, C =/= $× ->
+scan_name([C|Cs], Ncs) when C >= $\300, C =< $\336, C =/= $\327 ->
     scan_name(Cs, [C|Ncs]);
 scan_name([], Ncs) ->
     {more,Ncs};
@@ -659,77 +663,9 @@ scan_dot(Cs, St, Line, Col, Toks, Ncs) ->
 %%% specification denotes the characters with ASCII code in the
 %%% interval 0 to 32 as "white space".)
 %%%
-%%% Convention: if there is a white newline ($\n) it will always be
-%%% the first character in the text string. As a consequence, there
-%%% cannot be more than one newline in a white_space token string.
-%%%
 %%% Some common combinations are recognized, some are not. Examples
 %%% of the latter are tab(s) followed by space(s), like "\t  ".
 %%% (They will be represented by two (or more) tokens.)
-%%%
-%%% Note: the character sequence "\r\n" is *not* recognized since it
-%%% would violate the property that $\n will always be the first
-%%% character. (But since "\r\n\r\n" is common, it pays off to
-%%% recognize "\n\r".)
-
-scan_newline([$\s|Cs], St, Line, Col, Toks) ->
-    scan_nl_spcs(Cs, St, Line, Col, Toks, 2);
-scan_newline([$\t|Cs], St, Line, Col, Toks) ->
-    scan_nl_tabs(Cs, St, Line, Col, Toks, 2);
-scan_newline([$\r|Cs], St, Line, Col, Toks) ->
-    newline_end(Cs, St, Line, Col, Toks, 2, "\n\r");
-scan_newline([$\f|Cs], St, Line, Col, Toks) ->
-    newline_end(Cs, St, Line, Col, Toks, 2, "\n\f");
-scan_newline([], _St, Line, Col, Toks) ->
-    {more,{[$\n],Col,Toks,Line,[],fun scan/6}};
-scan_newline(Cs, St, Line, Col, Toks) ->
-    scan_nl_white_space(Cs, St, Line, Col, Toks, "\n").
-
-scan_nl_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 17 ->
-    scan_nl_spcs(Cs, St, Line, Col, Toks, N+1);
-scan_nl_spcs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_nl_spcs/6}};
-scan_nl_spcs(Cs, St, Line, Col, Toks, N) ->
-    newline_end(Cs, St, Line, Col, Toks, N, nl_spcs(N)).
-    
-scan_nl_tabs([$\t|Cs], St, Line, Col, Toks, N) when N < 11 ->
-    scan_nl_tabs(Cs, St, Line, Col, Toks, N+1);
-scan_nl_tabs([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun scan_nl_tabs/6}};
-scan_nl_tabs(Cs, St, Line, Col, Toks, N) ->
-    newline_end(Cs, St, Line, Col, Toks, N, nl_tabs(N)).
-
-%% Note: returning {more,Cont} is meaningless here; one could just as
-%% well return several tokens. But since tokens() scans up to a full
-%% stop anyway, nothing is gained by not collecting all white spaces.
-scan_nl_white_space([$\n|Cs], #rfe_scan{text = false}=St, Line, no_col=Col, 
-                    Toks0, Ncs) ->
-    Toks = [{white_space,Line,lists:reverse(Ncs)}|Toks0],
-    scan_newline(Cs, St, Line+1, Col, Toks);
-scan_nl_white_space([$\n|Cs], St, Line, Col, Toks, Ncs0) ->
-    Ncs = lists:reverse(Ncs0),
-    Attrs = attributes(Line, Col, St, Ncs),
-    Token = {white_space,Attrs,Ncs},
-    scan_newline(Cs, St, Line+1, new_column(Col, length(Ncs)), [Token|Toks]);
-scan_nl_white_space([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
-    scan_nl_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_nl_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_nl_white_space/6}};
-scan_nl_white_space(Cs, #rfe_scan{text = false}=St, Line, no_col=Col, 
-                    Toks, Ncs) ->
-    scan1(Cs, St, Line+1, Col, [{white_space,Line,lists:reverse(Ncs)}|Toks]);
-scan_nl_white_space(Cs, St, Line, Col, Toks, Ncs0) ->
-    Ncs = lists:reverse(Ncs0),
-    Attrs = attributes(Line, Col, St, Ncs),
-    Token = {white_space,Attrs,Ncs},
-    scan1(Cs, St, Line+1, new_column(Col, length(Ncs)), [Token|Toks]).
-
-newline_end(Cs, #rfe_scan{text = false}=St, Line, no_col=Col, 
-            Toks, _N, Ncs) ->
-    scan1(Cs, St, Line+1, Col, [{white_space,Line,Ncs}|Toks]);
-newline_end(Cs, St, Line, Col, Toks, N, Ncs) ->
-    Attrs = attributes(Line, Col, St, Ncs),
-    scan1(Cs, St, Line+1, new_column(Col, N), [{white_space,Attrs,Ncs}|Toks]).
 
 scan_spcs([$\s|Cs], St, Line, Col, Toks, N) when N < 16 ->
     scan_spcs(Cs, St, Line, Col, Toks, N+1);
@@ -745,8 +681,6 @@ scan_tabs([]=Cs, _St, Line, Col, Toks, N) ->
 scan_tabs(Cs, St, Line, Col, Toks, N) ->
     white_space_end(Cs, St, Line, Col, Toks, N, tabs(N)).
 
-skip_white_space([$\n|Cs], St, Line, Col, Toks, _N) ->
-    skip_white_space(Cs, St, Line+1, new_column(Col, 1), Toks, 0);
 skip_white_space([C|Cs], St, Line, Col, Toks, N) when ?WHITE_SPACE(C) ->
     skip_white_space(Cs, St, Line, Col, Toks, N+1);
 skip_white_space([]=Cs, _St, Line, Col, Toks, N) ->
@@ -755,8 +689,6 @@ skip_white_space(Cs, St, Line, Col, Toks, N) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
 
 %% Maybe \t and \s should break the loop.
-scan_white_space([$\n|_]=Cs, St, Line, Col, Toks, Ncs) ->
-    white_space_end(Cs, St, Line, Col, Toks, length(Ncs), lists:reverse(Ncs));
 scan_white_space([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
     scan_white_space(Cs, St, Line, Col, Toks, [C|Ncs]);
 scan_white_space([]=Cs, _St, Line, Col, Toks, Ncs) ->
@@ -1213,23 +1145,6 @@ new_column(no_col=Col, _Ncol) ->
 new_column(Col, Ncol) when is_integer(Col) ->
     Ncol.
 
-nl_spcs(2)  -> "\n ";
-nl_spcs(3)  -> "\n  ";
-nl_spcs(4)  -> "\n   ";
-nl_spcs(5)  -> "\n    ";
-nl_spcs(6)  -> "\n     ";
-nl_spcs(7)  -> "\n      ";
-nl_spcs(8)  -> "\n       ";
-nl_spcs(9)  -> "\n        ";
-nl_spcs(10) -> "\n         ";
-nl_spcs(11) -> "\n          ";
-nl_spcs(12) -> "\n           ";
-nl_spcs(13) -> "\n            ";
-nl_spcs(14) -> "\n             ";
-nl_spcs(15) -> "\n              ";
-nl_spcs(16) -> "\n               ";
-nl_spcs(17) -> "\n                ".
-
 spcs(1)  -> " ";
 spcs(2)  -> "  ";
 spcs(3)  -> "   ";
@@ -1247,17 +1162,6 @@ spcs(14) -> "              ";
 spcs(15) -> "               ";
 spcs(16) -> "                ".
 
-nl_tabs(2)  -> "\n\t";
-nl_tabs(3)  -> "\n\t\t";
-nl_tabs(4)  -> "\n\t\t\t";
-nl_tabs(5)  -> "\n\t\t\t\t";
-nl_tabs(6)  -> "\n\t\t\t\t\t";
-nl_tabs(7)  -> "\n\t\t\t\t\t\t";
-nl_tabs(8)  -> "\n\t\t\t\t\t\t\t";
-nl_tabs(9)  -> "\n\t\t\t\t\t\t\t\t";
-nl_tabs(10) -> "\n\t\t\t\t\t\t\t\t\t";
-nl_tabs(11) -> "\n\t\t\t\t\t\t\t\t\t\t".
-    
 tabs(1)  ->  "\t";
 tabs(2)  ->  "\t\t";
 tabs(3)  ->  "\t\t\t";

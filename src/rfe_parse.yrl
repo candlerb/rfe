@@ -24,6 +24,7 @@
 
 Nonterminals
 form
+break separator opt_nl
 attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
@@ -55,6 +56,7 @@ bin_base_type bin_unit_type int_type.
 
 Terminals
 char integer float atom string var
+nl
 
 '(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
@@ -76,6 +78,15 @@ Rootsymbol form.
 form -> attribute dot : '$1'.
 form -> function dot : '$1'.
 form -> rule dot : '$1'.
+
+% Line-based syntax
+break -> break separator.
+break -> separator.
+separator -> nl.
+separator -> ';'.
+
+opt_nl -> opt_nl nl.
+opt_nl -> '$empty'.
 
 attribute -> '-' atom attr_val               : build_attribute('$2', '$3').
 attribute -> '-' atom typed_attr_val         : build_typed_attribute('$2','$3').
@@ -214,46 +225,46 @@ clause_body -> '->' exprs: '$2'.
 expr -> 'catch' expr : {'catch',?line('$1'),'$2'}.
 expr -> expr_100 : '$1'.
 
-expr_100 -> expr_150 '=' expr_100 : {match,?line('$2'),'$1','$3'}.
-expr_100 -> expr_150 '!' expr_100 : ?mkop2('$1', '$2', '$3').
+expr_100 -> expr_150 '=' opt_nl expr_100 : {match,?line('$2'),'$1','$4'}.
+expr_100 -> expr_150 '!' opt_nl expr_100 : ?mkop2('$1', '$2', '$4').
 expr_100 -> expr_150 : '$1'.
 
-expr_150 -> expr_160 'orelse' expr_150 : ?mkop2('$1', '$2', '$3').
+expr_150 -> expr_160 'orelse' opt_nl expr_150 : ?mkop2('$1', '$2', '$4').
 expr_150 -> expr_160 : '$1'.
 
-expr_160 -> expr_200 'andalso' expr_160 : ?mkop2('$1', '$2', '$3').
+expr_160 -> expr_200 'andalso' opt_nl expr_160 : ?mkop2('$1', '$2', '$4').
 expr_160 -> expr_200 : '$1'.
 
-expr_200 -> expr_300 comp_op expr_300 :
-	?mkop2('$1', '$2', '$3').
+expr_200 -> expr_300 comp_op opt_nl expr_300 :
+	?mkop2('$1', '$2', '$4').
 expr_200 -> expr_300 : '$1'.
 
-expr_300 -> expr_400 list_op expr_300 :
-	?mkop2('$1', '$2', '$3').
+expr_300 -> expr_400 list_op opt_nl expr_300 :
+	?mkop2('$1', '$2', '$4').
 expr_300 -> expr_400 : '$1'.
 
-expr_400 -> expr_400 add_op expr_500 :
-	?mkop2('$1', '$2', '$3').
+expr_400 -> expr_400 add_op opt_nl expr_500 :
+	?mkop2('$1', '$2', '$4').
 expr_400 -> expr_500 : '$1'.
 
-expr_500 -> expr_500 mult_op expr_600 :
-	?mkop2('$1', '$2', '$3').
+expr_500 -> expr_500 mult_op opt_nl expr_600 :
+	?mkop2('$1', '$2', '$4').
 expr_500 -> expr_600 : '$1'.
 
-expr_600 -> prefix_op expr_700 :
-	?mkop1('$1', '$2').
+expr_600 -> prefix_op opt_nl expr_700 :
+	?mkop1('$1', '$3').
 expr_600 -> expr_700 : '$1'.
 
 expr_700 -> function_call : '$1'.
 expr_700 -> record_expr : '$1'.
 expr_700 -> expr_800 : '$1'.
 
-expr_800 -> expr_900 ':' expr_max :
-	{remote,?line('$2'),'$1','$3'}.
+expr_800 -> expr_900 ':' opt_nl expr_max :
+	{remote,?line('$2'),'$1','$4'}.
 expr_800 -> expr_900 : '$1'.
 
-expr_900 -> '.' atom1 :
-	{record_field,?line('$1'),{atom,?line('$1'),''},'$2'}.
+expr_900 -> '.' opt_nl atom1 :
+	{record_field,?line('$1'),{atom,?line('$1'),''},'$3'}.
 expr_900 -> expr_900 '.' atom1 :
 	{record_field,?line('$2'),'$1','$3'}.
 expr_900 -> expr_max : '$1'.

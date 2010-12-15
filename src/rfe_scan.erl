@@ -571,6 +571,8 @@ scan1([$`|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "`", '`', 1);
 scan1([$~|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "~", '~', 1);
+scan1("&&"++Cs, St, Line, Col, Toks) ->
+    tok2(Cs, St, Line, Col, Toks, "&&", '&&', 2);
 scan1([$&|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "&", '&', 1);
 %% End of optimization.
@@ -1174,6 +1176,7 @@ tabs(9)  ->  "\t\t\t\t\t\t\t\t\t";
 tabs(10) ->  "\t\t\t\t\t\t\t\t\t\t".
 
 -spec reserved_word(atom()) -> boolean().
+reserved_word('def') -> true;
 reserved_word('after') -> true;
 reserved_word('begin') -> true;
 reserved_word('case') -> true;

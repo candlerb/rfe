@@ -26,7 +26,7 @@ Nonterminals
 form
 break separator opt_nl
 attribute attr_val
-function function_clauses function_clause
+function
 clause_args clause_guard clause_body
 expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
 expr_600 expr_700 expr_800 expr_900
@@ -43,7 +43,7 @@ fun_expr fun_clause fun_clauses
 %% cond_expr cond_clause cond_clauses
 try_expr try_catch try_clause try_clauses query_expr
 function_call argument_list
-exprs guard
+exprs guard gexprs fexprs
 atomic strings
 prefix_op mult_op add_op list_op comp_op
 rule rule_clauses rule_clause rule_body
@@ -58,7 +58,8 @@ Terminals
 char integer float atom string var
 nl
 
-'(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
+'(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '&&' '<-' ';' ':' '#' '.'
+'def'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'andalso' 'orelse' 'query' 'spec'
 %% 'cond'
@@ -205,16 +206,12 @@ attr_val -> expr                     : ['$1'].
 attr_val -> expr ',' exprs           : ['$1' | '$3'].
 attr_val -> '(' expr ',' exprs ')'   : ['$2' | '$4'].
 
-function -> function_clauses : build_function('$1').
-
-function_clauses -> function_clause : ['$1'].
-function_clauses -> function_clause ';' function_clauses : ['$1'|'$3'].
-
-function_clause -> atom1 clause_args clause_guard clause_body :
-	{clause,?line('$1'),element(3, '$1'),'$2','$3','$4'}.
-
-
+%% We parse functions as a single clause, then merge them later
+function -> 'def' atom1 clause_args clause_guard break fexprs 'end' :
+	build_function([{clause,?line('$1'),element(3, '$2'),'$3','$4','$6'}]).
+            
 clause_args -> argument_list : element(1, '$1').
+clause_args -> '$empty' : [].
 
 clause_guard -> 'when' guard : '$2'.
 clause_guard -> '$empty' : [].
@@ -447,15 +444,19 @@ query_expr -> 'query' list_comprehension 'end' :
 	{'query',?line('$1'),'$2'}.
 
 
-argument_list -> '(' ')' : {[],?line('$1')}.
-argument_list -> '(' exprs ')' : {'$2',?line('$1')}.
+argument_list -> '(' opt_nl ')' : {[],?line('$1')}.
+argument_list -> '(' opt_nl exprs opt_nl ')' : {'$3',?line('$1')}.
 
+fexprs -> '$empty' : [].
+fexprs -> expr break fexprs : ['$1' | '$3'].
 
 exprs -> expr : ['$1'].
 exprs -> expr ',' exprs : ['$1' | '$3'].
 
-guard -> exprs : ['$1'].
-guard -> exprs ';' guard : ['$1'|'$3'].
+%% XXX Temporary syntax for guards
+guard -> gexprs : ['$1'].
+guard -> gexprs '||' guard : ['$1'|'$3'].
+gexprs -> expr '&&' gexprs : ['$1' | '$3'].
 
 atomic -> char : '$1'.
 atomic -> integer : '$1'.
